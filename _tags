@@ -1,0 +1,5 @@
+<src/**>: package(batteries, ppx_deriving.show)
+<src/**>: include
+true: debug
+true: annot
+true: bin_annot

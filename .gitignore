@@ -1,0 +1,5 @@
+*.sol
+*.str
+*.byte
+*.native
+_build/
