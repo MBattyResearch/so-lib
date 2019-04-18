@@ -1,38 +1,48 @@
 (** Example using the SO library to give a determination on some
 second-order formulae *)
 
-let example_sat =
-  let structure = SO.{ size = 5; relations = RelMap.empty } in
-  let formula =
-    SO.(
-      let x = mk_fresh_sv () in
-      let y = mk_fresh_fv () in
-      SoAny (x, 1,
-             FoAll (y, QRel (x, [Var y]))
-            )
-    )
-  in
-  structure, formula
+open SO
+open SoOps
 
-let example_unsat =
-  let structure = SO.{ size = 5; relations = RelMap.empty } in
-  let formula =
-    SO.(
-      let x = mk_fresh_sv () in
-      let y = mk_fresh_fv () in
-      SoAll (x, 1,
-             FoAll (y, QRel (x, [Var y]))
-            )
-    )
-  in
-  structure, formula
-  
-  
-let () =
-  let s, f = example_sat in
-  let determination = SoOps.model_check s f in
-  Printf.printf "Example Satisfiable Models: %b\n" determination;
-  let s, f = example_unsat in
-  let determination = SoOps.model_check s f in
-  Printf.printf "Example Unsatisfiable Models: %b\n" determination
-  
+let formulas = [|
+    "∃ X:1 . ∀ y . X(y)" ;
+    "∀ X:1 . ∀ y . X(y)" ;
+    "∃ X:1 . ∀ y . (X(y) ∧ ∃ z . ¬ y = z)" ;
+  |]
+
+let mk_structure i =
+  { size = i; relations = RelMap.empty}
+
+let s = mk_structure 1
+
+;;
+
+print_endline 
+  (Format.sprintf 
+    "Checking satisfiability in a structure of size %i" (size_of s))
+
+;;
+
+for i = 0 to 2 do
+  let f = formulas.(i) in
+  print_endline (Format.sprintf "\t%s: %b" f (model_check s (parse f)))
+done
+
+;;
+
+let s = mk_structure 5
+
+;;
+
+print_endline 
+  (Format.sprintf 
+    "Checking satisfiability in a structure of size %i" (size_of s))
+
+;;
+
+for i = 0 to 2 do
+  let f = formulas.(i) in
+  print_endline (Format.sprintf "\t%s: %b" f (model_check s (parse f)))
+done
+
+;;

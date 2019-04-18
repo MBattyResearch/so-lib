@@ -20,6 +20,8 @@ type structure =
   { size : int
   ; relations : relation RelMap.t }
 
+let size_of { size; _ } = size
+
 (* Special interpreted relations. See [SoOps.add_specials] for how to add them
 to the structure. *)
 let eq_rel = "(EQ)"
@@ -182,3 +184,158 @@ let mk_fresh_fv =
   fun ?(prefix = "F") () -> incr id; F (Printf.sprintf "%s%d" prefix !id)
 let mk_fresh_sv =
   fun ?(prefix = "S") () -> incr id; S (Printf.sprintf "%s%d" prefix !id)
+
+let digit  = [%sedlex.regexp? '0'..'9']
+let number = [%sedlex.regexp? Plus digit]
+let letter = [%sedlex.regexp? 'a'..'z'|'A'..'Z']
+
+type token = 
+  | DOT | COLON | COMMA | LPAREN | RPAREN
+  (* | TRUE | FALSE *)
+  | NUM of int | FO of string | SO of string
+  | EQUALS
+  | FORALL | EXISTS | NEG | CONJ | DISJ 
+
+let rec next_token buf =
+  match%sedlex buf with
+  | '.' -> Some DOT
+  | ',' -> Some COMMA
+  | ':' -> Some COLON
+  | '(' -> Some LPAREN
+  | ')' -> Some RPAREN
+  | 0x2200 | '!' -> Some FORALL
+  | 0x2203 | '?' -> Some EXISTS
+  | 0x00AC | '~' -> Some NEG
+  | 0x2227 | "/\\" -> Some CONJ
+  | 0x2228 | "\\/" -> Some DISJ
+  (* | 0x22A4 | "TRUE" -> Some TRUE
+  | 0x22A5 | "FALSE" -> Some FALSE *)
+  | number ->
+    Some (NUM (int_of_string (Sedlexing.Latin1.lexeme buf)))
+  | 'a'..'z', Star (letter | digit) ->
+     Some (FO (Sedlexing.Latin1.lexeme buf))
+  | 'A'..'Z', Star (letter | digit) ->
+     Some (SO (Sedlexing.Latin1.lexeme buf))
+  | '=' -> Some EQUALS
+  | Plus white_space -> next_token buf
+  | eof -> None
+  | _ -> 
+    failwith 
+      (Format.sprintf 
+        "Lexing error at position %i" (Sedlexing.lexeme_start buf))
+
+let is_num =
+  function
+  | NUM _ -> true
+  | _ -> false
+
+let is_fo =
+  function
+  | FO _ -> true
+  | _ -> false
+
+let is_term tok = (is_num tok) || (is_fo tok) 
+
+let is_so =
+  function
+  | SO _ -> true
+  | _ -> false
+
+let is_id tok = (is_fo tok) || (is_so tok)
+
+let dest_num =
+  function
+  | NUM i -> i
+  | _ -> failwith "Not a number!"
+
+let dest_term =
+  function
+  | NUM i -> Const i
+  | FO v -> Var (F v)
+  | _ -> failwith "Not a term!"
+
+let dest_id = 
+  function
+  | FO v -> `F v
+  | SO v -> `S v
+  | _ -> failwith "Not an identifier!"
+
+let dest_so_id =
+  function
+  | SO v -> v
+  | _ -> failwith "Not a second order identifier!"
+  
+open Opal
+
+let parse_term =
+  ((satisfy is_term)) >>= (dest_term % return)
+
+let parse_term_list =
+  sep_by parse_term (exactly COMMA)
+
+let parse_equality =
+  parse_term >>= (fun t ->
+  (exactly EQUALS) >>
+  parse_term >>= (fun t' -> 
+  return (CRel (eq_rel, [t; t']))))
+
+let parens p =
+  between (exactly LPAREN) (exactly RPAREN) p
+
+let parse_atomic scope =
+  (satisfy is_so) >>= (dest_so_id % (fun id ->
+  (parens parse_term_list) >>= (fun ts ->
+  if List.exists (String.equal id) scope then
+    return (CRel (id, ts))
+  else
+    return (QRel ((S id), ts)))))
+
+let parse_formula =
+  let rec parse_formula scope input =
+    ( (parse_equality)
+        <|>
+      (parse_atomic scope)
+        <|>
+      ((exactly NEG) >> (parse_formula scope) >>= (fun f -> return (Not f)))
+        <|>
+      ((exactly FORALL) >> (satisfy is_id) >>= (dest_id % (function
+        | `F v ->
+          (exactly DOT) >> 
+          (parse_formula (v::scope)) >>= (fun f ->
+          (return (FoAll (F v, f))))
+        | `S v ->
+          (exactly COLON) >>
+          (satisfy is_num) >>= (dest_num % (fun arity ->
+          (exactly DOT) >> 
+          (parse_formula (v::scope)) >>= (fun f ->
+          (return (SoAll (S v, arity, f)))))))))
+        <|>
+      ((exactly EXISTS) >> (satisfy is_id) >>= (dest_id % (function
+        | `F v ->
+          (exactly DOT) >> 
+          (parse_formula (v::scope)) >>= (fun f ->
+          (return (FoAny (F v, f))))
+        | `S v ->
+          (exactly COLON) >>
+          (satisfy is_num) >>= (dest_num % (fun arity ->
+          (exactly DOT) >> 
+          (parse_formula (v::scope)) >>= (fun f ->
+          (return (SoAny (S v, arity, f)))))))))
+        <|>
+      (parens (sep_by1 (parse_formula scope) (exactly CONJ)) >>= (fun fs ->
+      return (And fs)))
+        <|>
+      (parens (sep_by1 (parse_formula scope) (exactly DISJ)) >>= (fun fs ->
+      return (Or fs)))
+    ) input in
+  parse_formula []
+
+let parse str =
+  let buf = Sedlexing.Utf8.from_string str in
+  let input = Opal.LazyStream.of_function (fun () -> next_token buf) in
+  let parser = parse_formula >>= (fun f -> eof f) in
+  match parse parser input with
+  | Some f ->
+    f
+  | None ->
+    failwith "Parsing Error!"

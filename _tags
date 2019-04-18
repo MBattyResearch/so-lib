@@ -1,4 +1,4 @@
-<src/**>: package(batteries, ppx_deriving.show)
+<src/**>: package(batteries, ppx_deriving.show, sedlex, sedlex.ppx, opal)
 <src/**>: include
 true: debug
 true: annot
