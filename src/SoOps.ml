@@ -178,7 +178,7 @@ let so_to_qbf structure formula =
   go SoEnv.empty FoEnv.empty formula
 
 let dump s f =
-  let basename = Filename.remove_extension (Config.filename ()) in
+  let basename = Filename.remove_extension (SOConfig.filename ()) in
   let f_c = open_out (basename ^ ".sol") in
   let s_c = open_out (basename ^ ".str") in
   Printf.fprintf f_c "%s\n" (show_formula f);
@@ -188,14 +188,14 @@ let dump s f =
 
 let holds s f =
   dump s f;
-  let basename = Filename.remove_extension (Config.filename ()) in
+  let basename = Filename.remove_extension (SOConfig.filename ()) in
   (*
     Hello everybody,
     there has been a lot of development in QFM for TPTP problems so a lot has changed.
     However, you should be able to get comparable behavior by using the -x option.
     -M
    *)
-  let extras = Array.of_list (Config.so_solver_opts ()) in
+  let extras = Array.of_list (SOConfig.so_solver_opts ()) in
   let o = RunSolver.run_so_solver (Array.append extras [|(basename ^ ".sol"); (basename ^ ".str")|]) "" in
   Results.parse_answer o
 

@@ -42,7 +42,7 @@ let run_program program options data =
   if not (program_in_path program) then
     raise (SubprocessFailed ("missing executable (" ^ program ^ ")", ""));
 
-  if (Config.verbose ()) then (
+  if (SOConfig.verbose ()) then (
     Printf.eprintf "running `%s'\n" (String.concat " " (program :: (Array.to_list options)));
     flush stderr;
   );
@@ -130,6 +130,6 @@ let run_program program options data =
     ))
 
 let run_qbf_solver options data =
-  run_program (Config.qbf_solver_bin ()) options data
+  run_program (SOConfig.qbf_solver_bin ()) options data
 let run_so_solver options data =
-  run_program (Config.so_solver_bin ()) options data
+  run_program (SOConfig.so_solver_bin ()) options data

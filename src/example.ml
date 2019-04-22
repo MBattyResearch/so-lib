@@ -8,6 +8,7 @@ let formulas = [|
     "∃ X:1 . ∀ y . X(y)" ;
     "∀ X:1 . ∀ y . X(y)" ;
     "∃ X:1 . ∀ y . (X(y) ∧ ∃ z . ¬ y = z)" ;
+    "∃ X:2 . ∀ y . X(y,y)";
   |]
 
 let mk_structure i =
@@ -23,7 +24,7 @@ print_endline
 
 ;;
 
-for i = 0 to 2 do
+for i = 0 to Array.length formulas - 1 do
   let f = formulas.(i) in
   print_endline (Format.sprintf "\t%s: %b" f (model_check s (parse f)))
 done
@@ -40,7 +41,7 @@ print_endline
 
 ;;
 
-for i = 0 to 2 do
+for i = 0 to Array.length formulas - 1 do
   let f = formulas.(i) in
   print_endline (Format.sprintf "\t%s: %b" f (model_check s (parse f)))
 done

@@ -254,8 +254,8 @@ let build_query_string p =
 
 let call_solver options parse p =
   let query = build_query_string p in
-  if Config.dump_qbf () then (
-    let basename = Filename.remove_extension (Config.filename ()) in
+  if SOConfig.dump_qbf () then (
+    let basename = Filename.remove_extension (SOConfig.filename ()) in
     let q_c = open_out (basename ^ ".qcir") in
     Printf.fprintf q_c "%s\n" query;
     close_out q_c
